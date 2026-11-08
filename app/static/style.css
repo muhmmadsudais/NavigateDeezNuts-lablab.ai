@@ -1,0 +1,119 @@
+/* Small additions on top of Pico CSS. Works in light and dark mode. */
+
+:root {
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+  --info: #1d4ed8;
+  --ok-bg: rgba(34, 197, 94, 0.16);
+  --warn-bg: rgba(245, 158, 11, 0.18);
+  --bad-bg: rgba(239, 68, 68, 0.16);
+  --info-bg: rgba(59, 130, 246, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --info: #93c5fd; }
+}
+
+body { font-size: 1.02rem; }
+@media (min-width: 1280px) { .container { max-width: 1320px; } }
+.wide-left, .two-col { align-items: start; }
+.brand { font-size: 1.25rem; }
+.tagline { color: var(--pico-muted-color); font-size: 0.9rem; }
+@media (max-width: 900px) { .tagline { display: none; } }
+nav ul { flex-wrap: wrap; }
+.footer { color: var(--pico-muted-color); padding-top: 0; }
+h1 { margin-bottom: 0.4rem; }
+.subtitle { color: var(--pico-muted-color); margin-top: 0; }
+.muted { color: var(--pico-muted-color); }
+.nowrap { white-space: nowrap; }
+.right { text-align: right; }
+.inline-form { display: inline; margin: 0; }
+.inline-form button { margin: 0; }
+.row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.row-actions form { margin: 0; }
+.row-actions button, .row-actions [role=button] { margin: 0; }
+button.small, [role=button].small { padding: 0.3rem 0.75rem; font-size: 0.9rem; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+
+/* flash messages */
+.flash { padding: 0.8rem 1.1rem; margin-bottom: 1.2rem; border-left: 5px solid; }
+.flash-ok { border-color: var(--ok); background: var(--ok-bg); }
+.flash-err { border-color: var(--bad); background: var(--bad-bg); }
+
+/* badges */
+.badge { display: inline-block; padding: 0.12rem 0.6rem; border-radius: 999px; font-size: 0.82rem;
+         font-weight: 600; white-space: nowrap; line-height: 1.5; }
+.badge-green { color: var(--ok); background: var(--ok-bg); }
+.badge-amber { color: var(--warn); background: var(--warn-bg); }
+.badge-red { color: var(--bad); background: var(--bad-bg); }
+.badge-blue { color: var(--info); background: var(--info-bg); }
+.badge-grey { color: var(--pico-muted-color); background: rgba(127, 127, 127, 0.15); }
+
+/* KPI cards */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.kpi { margin: 0; padding: 1rem 1.2rem; }
+.kpi .value { font-size: 2.3rem; font-weight: 700; line-height: 1.1; }
+.kpi .name { color: var(--pico-muted-color); font-size: 0.95rem; }
+.kpi.alert .value { color: var(--bad); }
+.kpi.good .value { color: var(--ok); }
+
+/* tables */
+.table-wrap { overflow-x: auto; }
+table td, table th { vertical-align: middle; }
+tr.row-risk td { background-color: var(--bad-bg) !important; }
+tr.row-delayed td { background-color: var(--warn-bg) !important; }
+
+/* layout grids */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.wide-left { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+@media (max-width: 900px) { .two-col, .wide-left { grid-template-columns: 1fr; } }
+
+/* activity feed */
+.feed { list-style: none; padding: 0; margin: 0; }
+.feed li { list-style: none; padding: 0.45rem 0; border-bottom: 1px solid var(--pico-muted-border-color); font-size: 0.95rem; }
+.feed .time { color: var(--pico-muted-color); font-size: 0.82rem; margin-right: 0.4rem; }
+
+/* step trace */
+.trace { display: flex; gap: 0.4rem; flex-wrap: wrap; list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.trace li { list-style: none; flex: 1 1 140px; padding: 0.6rem 0.8rem; border-radius: 8px; border: 2px solid var(--pico-muted-border-color);
+            font-size: 0.9rem; position: relative; }
+.trace li strong { display: block; }
+.trace li small { color: var(--pico-muted-color); }
+.trace li.done { border-color: var(--ok); background: var(--ok-bg); }
+.trace li.current { border-color: var(--warn); background: var(--warn-bg); }
+.trace li.todo { opacity: 0.6; }
+
+/* AI recommendation */
+.ai-box { border-left: 5px solid var(--info); }
+.ai-box p { font-size: 1.05rem; line-height: 1.6; }
+.facts td:first-child { color: var(--pico-muted-color); }
+.facts td { padding: 0.3rem 0.5rem; font-size: 0.92rem; }
+.facts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem 1rem; margin-top: 0.8rem; }
+.facts-grid div { border-bottom: 1px solid var(--pico-muted-border-color); padding: 0.25rem 0; }
+.facts-grid small { display: block; color: var(--pico-muted-color); font-size: 0.78rem; }
+.facts-grid span { font-weight: 600; font-size: 0.95rem; }
+
+/* simulation banner */
+.sim-banner { background: repeating-linear-gradient(45deg, var(--warn-bg), var(--warn-bg) 14px, transparent 14px, transparent 28px);
+              border: 3px dashed var(--warn); padding: 1rem 1.3rem; border-radius: 10px; margin-bottom: 1.5rem; }
+.sim-banner strong { font-size: 1.35rem; color: var(--warn); letter-spacing: 0.04em; }
+
+/* stock chart (inline SVG) */
+.chart { width: 100%; height: auto; }
+.chart .bar-green { fill: #22c55e; }
+.chart .bar-amber { fill: #f59e0b; }
+.chart .bar-red { fill: #ef4444; }
+.chart .axis { stroke: var(--pico-muted-color); stroke-width: 1; }
+.chart text { fill: var(--pico-muted-color); font-size: 11px; font-family: inherit; }
+.chart .marker-eta { stroke: #3b82f6; stroke-width: 2; stroke-dasharray: 4 3; }
+.chart .marker-stockout { stroke: #ef4444; stroke-width: 2; stroke-dasharray: 4 3; }
+.chart text.marker-eta { fill: #3b82f6; stroke: none; font-weight: 600; }
+.chart text.marker-stockout { fill: #ef4444; stroke: none; font-weight: 600; }
+.legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--pico-muted-color); }
+.legend span::before { content: ""; display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 2px; margin-right: 0.3rem; vertical-align: -1px; }
+.legend .l-green::before { background: #22c55e; }
+.legend .l-amber::before { background: #f59e0b; }
+.legend .l-red::before { background: #ef4444; }
+
+pre.email { white-space: pre-wrap; font-size: 0.9rem; padding: 1rem; }
+details summary { font-weight: 600; }

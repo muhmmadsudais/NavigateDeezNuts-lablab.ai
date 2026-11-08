@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Agent activity{% endblock %}
+{% block content %}
+<h1>Agent activity</h1>
+<p class="subtitle">Every step the agent takes: Detected &rarr; Analyzed &rarr; Sought alternatives &rarr; Recommended &rarr; Awaiting approval &rarr; Approved / Rejected. Refreshes automatically.</p>
+<article>
+  <div hx-get="/partials/activity?limit=500" hx-trigger="every 5s" hx-swap="innerHTML">
+    {% include "_activity_feed.html" %}
+  </div>
+</article>
+{% endblock %}

@@ -1,0 +1,18 @@
+{# Activity feed list. Also served alone at /partials/activity for htmx auto-refresh. #}
+{% import "_macros.html" as m %}
+{% if activity %}
+<ul class="feed">
+  {% for e in activity %}
+  <li>
+    <span class="time">{{ e.timestamp }}</span>
+    {% set step_colors = {"Detected": "red", "Analyzed": "amber", "Sought alternatives": "blue", "Recommended": "blue",
+                          "Awaiting approval": "amber", "Approved": "green", "Rejected": "grey", "Simulation": "amber",
+                          "Ingested": "blue"} %}
+    <span class="badge badge-{{ step_colors.get(e.step, 'grey') }}">{{ e.step }}</span>
+    {{ e.message }}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No agent activity yet.</p>
+{% endif %}
