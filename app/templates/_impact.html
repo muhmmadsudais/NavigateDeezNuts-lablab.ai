@@ -2,28 +2,23 @@
 {% import "_macros.html" as m %}
 {% set a = v.a %}
 
-<div class="wide-left">
-  <article class="ai-box">
-    <header class="page-head">
-      <strong>{% if simulation %}Hypothetical recommendation{% else %}Agent recommendation{% endif %}</strong>
-      {{ m.ai_badge(v.ai_source) }}
-    </header>
-    {% if simulation %}<p><span class="badge badge-amber">{{ simulation_label }}</span></p>{% endif %}
-    <p>{{ v.recommendation }}</p>
-    <footer><small class="muted">The AI only rewrites the computed facts on the right; every number is calculated in Python.</small></footer>
-  </article>
-
-  <article>
-    <header><strong>Computed facts</strong></header>
-    <table class="facts">
-      <tbody>
-        {% for key, value in a.facts.items() %}
-        <tr><td>{{ key | label }}</td><td>{{ value }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </article>
-</div>
+<article class="ai-box">
+  <header class="page-head">
+    <strong>{% if simulation %}Hypothetical recommendation{% else %}Agent recommendation{% endif %}</strong>
+    {{ m.ai_badge(v.ai_source) }}
+  </header>
+  {% if simulation %}<p><span class="badge badge-amber">{{ simulation_label }}</span></p>{% endif %}
+  <p>{{ v.recommendation }}</p>
+  <details open>
+    <summary>Computed facts the AI was given (verify every number)</summary>
+    <div class="facts-grid">
+      {% for key, value in a.facts.items() %}
+      <div><small>{{ key | label }}</small><span>{{ value }}</span></div>
+      {% endfor %}
+    </div>
+  </details>
+  <footer><small class="muted">The AI only rewrites these computed facts; every number is calculated in Python, never by the AI.</small></footer>
+</article>
 
 <section>
   <h3>Impact</h3>

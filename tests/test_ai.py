@@ -54,6 +54,29 @@ def test_pick_model_prefers_instruct_chat_models():
     assert ai.pick_model([]) is None
 
 
+def text_model(model_id, efforts=("minimal", "low")):
+    return {"id": model_id, "output_modalities": [{"type": "text"}],
+            "reasoning": {"mandatory": False, "supported_efforts": list(efforts)}}
+
+
+def test_pick_model_uses_vultr_metadata():
+    # Shaped like the real https://api.vultrinference.com/v1/models catalog.
+    catalog = [
+        {"id": "chatterbox", "output_modalities": [{"type": "speech"}]},
+        {"id": "qwen3-embedding-4b", "output_modalities": [{"type": "embeddings"}]},
+        {"id": "clef", "output_modalities": [{"type": "decisions"}]},
+        text_model("deepseek-v4.1-flash-1017"),
+        text_model("nemotron-3.5-content-safety"),
+        text_model("qwen3.8-27b"),
+        text_model("qwen3.8-flash-next"),
+    ]
+    assert ai.pick_model(catalog) == "qwen3.8-flash-next"
+    assert ai.pick_model(catalog[:3]) is None
+    assert ai._reasoning_effort(catalog[-1]) == "minimal"
+    assert ai._reasoning_effort(text_model("x", efforts=("high", "low"))) == "low"
+    assert ai._reasoning_effort({"id": "plain"}) is None
+
+
 def test_no_api_key_means_fallback(headline_facts):
     assert ai.status()["configured"] is False
     text, source = ai.recommend(headline_facts)
@@ -161,3 +184,36 @@ def test_chat_failure_is_caught(monkeypatch):
     monkeypatch.setattr(ai, "_model", "some-model")
     assert ai._chat([{"role": "user", "content": "hi"}]) is None
     assert ai._cooldown_until > 0  # skips the LLM for a while so pages stay fast
+
+
+def test_chat_retries_without_reasoning_effort_on_400(monkeypatch):
+    calls = []
+
+    class BadRequest(Exception):
+        status_code = 400
+
+    class Message:
+        content = "<think>hmm</think>Hello from the model"
+
+    class Choice:
+        message = Message()
+
+    class Response:
+        choices = [Choice()]
+
+    class FakeClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    calls.append(kwargs)
+                    if kwargs.get("extra_body"):
+                        raise BadRequest()
+                    return Response()
+
+    monkeypatch.setattr(ai, "_get_client", lambda: FakeClient())
+    monkeypatch.setattr(ai, "_model", "some-model")
+    monkeypatch.setattr(ai, "_effort", "minimal")
+    assert ai._chat([{"role": "user", "content": "hi"}]) == "Hello from the model"
+    assert calls[0]["extra_body"] == {"reasoning_effort": "minimal"} and "extra_body" not in calls[1]
+    assert ai._effort is None

@@ -26,6 +26,7 @@ COOLDOWN_SECONDS = 60  # after a failed call, skip the LLM for a minute so pages
 _lock = threading.Lock()
 _client = None
 _model: str | None = None
+_effort: str | None = None  # reasoning_effort to request, if the model supports it
 _cooldown_until = 0.0
 _cache: dict[str, str] = {}
 
@@ -58,41 +59,76 @@ def _get_client():
     return _client
 
 
-def score_model_name(name: str) -> int:
-    """Higher is better. Used to pick a chat model when VULTR_MODEL is not set."""
-    n = name.lower()
-    if any(bad in n for bad in ("embed", "whisper", "tts", "rerank", "guard", "diffusion", "flux", "image", "vision", "ocr")):
+NON_CHAT_WORDS = ("embed", "whisper", "tts", "asr", "speech", "music", "rerank", "guard", "safety",
+                  "diffusion", "flux", "image", "vision", "ocr")
+
+
+def _model_info(model) -> dict:
+    """Model entry from client.models.list() as a plain dict (keeps Vultr's extra metadata)."""
+    if isinstance(model, dict):
+        return model
+    if isinstance(model, str):
+        return {"id": model}
+    try:
+        return model.model_dump()
+    except Exception:
+        return {"id": str(getattr(model, "id", ""))}
+
+
+def score_model(model) -> int:
+    """Higher is better; -1 means "not a chat model". Used when VULTR_MODEL is not set."""
+    info = _model_info(model)
+    name = str(info.get("id", "")).lower()
+    outputs = [o.get("type") for o in info.get("output_modalities") or [] if isinstance(o, dict)]
+    if not name or (outputs and "text" not in outputs) or any(w in name for w in NON_CHAT_WORDS):
         return -1
-    score = 0
-    if any(fam in n for fam in ("llama", "qwen", "mistral")):
+    score = 1 if outputs else 0  # the endpoint itself confirms it outputs text
+    if any(family in name for family in ("llama", "qwen", "mistral")):
         score += 2
-    if "instruct" in n or "chat" in n:
+    if "instruct" in name or "chat" in name:
         score += 3
-    if "coder" in n:
+    if "flash" in name or "mini" in name:
+        score += 1  # faster answers for a live demo
+    if "coder" in name:
         score -= 1
     return score
 
 
-def pick_model(names: list[str]) -> str | None:
-    candidates = [(score_model_name(n), n) for n in names if score_model_name(n) >= 0]
-    if not candidates:
+def pick_model(models: list) -> str | None:
+    """Pick the best chat model from a list of model ids or metadata dicts."""
+    scored = [(score_model(m), _model_info(m)["id"]) for m in models]
+    scored = [(score, name) for score, name in scored if score >= 0]
+    if not scored:
         return None
-    best_score = max(s for s, _ in candidates)
-    return next(n for s, n in candidates if s == best_score)  # keep the API's order on ties
+    best = max(score for score, _ in scored)
+    return next(name for score, name in scored if score == best)  # keep the API's order on ties
+
+
+def _reasoning_effort(info: dict) -> str | None:
+    """Lowest reasoning effort the model advertises, so answers come back fast and within max_tokens."""
+    reasoning = info.get("reasoning")
+    if not isinstance(reasoning, dict):
+        return None
+    supported = reasoning.get("supported_efforts") or []
+    return next((e for e in ("minimal", "low") if e in supported), None)
 
 
 def _get_model(client) -> str | None:
     """VULTR_MODEL if set, otherwise auto-pick from client.models.list() once and cache it."""
-    global _model
+    global _model, _effort
     if _model:
         return _model
     configured = os.getenv("VULTR_MODEL", "").strip()
-    if configured:
-        _model = configured
-    else:
-        names = [m.id for m in client.models.list().data]
-        _model = pick_model(names)
+    try:
+        infos = [_model_info(m) for m in client.models.list().data]
+    except Exception as exc:
+        if not configured:
+            raise
+        logger.info("Could not list models (%s); using VULTR_MODEL as configured.", type(exc).__name__)
+        infos = []
+    _model = configured or pick_model(infos)
     if _model:
+        _effort = _reasoning_effort(next((i for i in infos if i.get("id") == _model), {}))
         logger.info("Vultr Serverless Inference model selected: %s", _model)
     else:
         logger.warning("No suitable chat model found on Vultr endpoint; using offline fallback.")
@@ -106,7 +142,7 @@ def status() -> dict:
 
 def _chat(messages: list[dict], max_tokens: int = 700) -> str | None:
     """One chat completion. Returns the text, or None on ANY problem."""
-    global _cooldown_until
+    global _cooldown_until, _effort
     client = _get_client()
     if client is None or time.time() < _cooldown_until:
         return None
@@ -116,9 +152,16 @@ def _chat(messages: list[dict], max_tokens: int = 700) -> str | None:
         if not model:
             _cooldown_until = time.time() + COOLDOWN_SECONDS
             return None
-        resp = client.chat.completions.create(
-            model=model, messages=messages, temperature=0.2, max_tokens=max_tokens,
-        )
+        kwargs = {"model": model, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens + 800}
+        try:
+            resp = client.chat.completions.create(
+                **kwargs, extra_body={"reasoning_effort": _effort} if _effort else None)
+        except Exception as exc:
+            if not _effort or getattr(exc, "status_code", None) != 400:
+                raise
+            logger.info("Endpoint rejected reasoning_effort; retrying without it.")
+            _effort = None
+            resp = client.chat.completions.create(**kwargs)
         text = resp.choices[0].message.content if resp.choices else None
         if not text:
             return None
@@ -303,8 +346,8 @@ def parse_email(text: str, data: dict, today: date | None = None) -> tuple[dict,
 
 def fallback_recommendation(facts: dict, simulation: bool = False) -> str:
     """Deterministic recommendation text built only from the computed facts."""
-    prefix = "In this hypothetical scenario, " if simulation else ""
-    head = (f"{prefix}shipment {facts.get('shipment_id')} from {facts.get('supplier')} "
+    prefix = "In this hypothetical scenario, shipment" if simulation else "Shipment"
+    head = (f"{prefix} {facts.get('shipment_id')} from {facts.get('supplier')} "
             f"({facts.get('shipment_quantity')} {facts.get('product')}) is now expected {facts.get('current_eta')}")
     delay = facts.get("delay_days", 0)
     head += f", {delay} days late. " if delay else ". "

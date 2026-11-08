@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS customer_orders (
     quantity_needed INTEGER NOT NULL,
     due_date        TEXT NOT NULL,
     priority        TEXT NOT NULL,         -- high / medium / low
-    status          TEXT NOT NULL          -- open / inventory reserved / customer notified / delivered
+    status          TEXT NOT NULL          -- open / inventory reserved / customer notified / reserved + notified / delivered
 );
 
 CREATE TABLE IF NOT EXISTS actions (

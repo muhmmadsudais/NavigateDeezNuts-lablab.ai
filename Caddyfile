@@ -1,0 +1,12 @@
+# Serve the app on plain HTTP using the VM's public IP: http://<your-vultr-ip>/
+:80 {
+	reverse_proxy web:8000
+}
+
+# Have a domain? Point its DNS A record at the VM's IP, then replace the block
+# above with the one below (use your real domain). Caddy gets a free HTTPS
+# certificate from Let's Encrypt automatically.
+#
+# navigatedeeznuts.example.com {
+# 	reverse_proxy web:8000
+# }

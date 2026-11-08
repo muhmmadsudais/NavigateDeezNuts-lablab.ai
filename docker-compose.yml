@@ -1,0 +1,28 @@
+services:
+  web:
+    build: .
+    env_file:
+      - path: .env
+        required: false   # the app works without a .env file (offline AI fallback)
+    volumes:
+      - ./data:/code/data
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

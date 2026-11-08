@@ -34,7 +34,7 @@
   <table class="striped">
     <thead>
       <tr><th>Shipment</th><th>Supplier</th><th>Component</th><th class="right">Qty</th>
-          <th>Promised</th><th>Current ETA</th><th>Status</th><th>Risk</th><th></th></tr>
+          <th>Promised</th><th>Current ETA</th><th>Status</th><th>Risk</th></tr>
     </thead>
     <tbody>
       {% for s in shipments %}
@@ -43,15 +43,16 @@
         <td>{{ s.supplier_name }}</td>
         <td>{{ s.product_name }}</td>
         <td class="right">{{ s.quantity | num }}</td>
-        <td class="nowrap">{{ s.expected_date | nice_date }}</td>
-        <td class="nowrap">{{ s.current_eta | nice_date }}{% if s.delay_days %} <small>(+{{ s.delay_days }}d)</small>{% endif %}</td>
+        <td class="nowrap">{{ s.expected_date | short_date }}</td>
+        <td class="nowrap">{{ s.current_eta | short_date }}{% if s.delay_days %} <small>(+{{ s.delay_days }}d)</small>{% endif %}</td>
         <td>{{ m.status_badge(s.status) }}</td>
         <td>
-          {% if s.at_risk %}<span class="badge badge-red">Stockout risk</span>
-          {% elif s.disrupted %}<span class="badge badge-amber">Watch</span>
+          <a href="/shipments/{{ s.id }}" title="Open impact analysis">
+          {% if s.at_risk %}<span class="badge badge-red">Stockout risk &rarr;</span>
+          {% elif s.disrupted %}<span class="badge badge-amber">Watch &rarr;</span>
           {% else %}<span class="badge badge-green">OK</span>{% endif %}
+          </a>
         </td>
-        <td><a href="/shipments/{{ s.id }}" class="nowrap">Impact &rarr;</a></td>
       </tr>
       {% endfor %}
     </tbody>

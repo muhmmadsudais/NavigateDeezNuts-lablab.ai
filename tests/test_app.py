@@ -126,6 +126,11 @@ def test_action_plan_approve_and_reject(client):
     statuses = {o["id"]: o["status"] for o in query("SELECT * FROM customer_orders")}
     assert statuses["ORD-2001"] == "customer notified" and statuses["ORD-2002"] == "customer notified"
 
+    # Approve reserve -> the high-priority order keeps both statuses.
+    client.post(f"/actions/{actions['reserve_inventory']['id']}/approve")
+    statuses = {o["id"]: o["status"] for o in query("SELECT * FROM customer_orders")}
+    assert statuses["ORD-2001"] == "reserved + notified" and statuses["ORD-2002"] == "customer notified"
+
     # Reject -> status rejected, no state change.
     client.post(f"/actions/{actions['request_commitment']['id']}/reject")
     decided = {a["type"]: a["status"] for a in query("SELECT * FROM actions")}

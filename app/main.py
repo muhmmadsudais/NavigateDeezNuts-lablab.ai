@@ -37,7 +37,8 @@ async def lifespan(app: FastAPI):
     db.init_db()  # create tables + seed demo data on first start
     status = ai.status()
     logger.info("%s started. AI mode: %s", APP_NAME,
-                "Vultr Serverless Inference" if status["configured"] else "offline fallback (no VULTR_API_KEY)")
+                "Vultr Serverless Inference (API key set)" if status["configured"]
+                else "offline fallback (no VULTR_API_KEY)")
     yield
 
 
@@ -67,11 +68,16 @@ def nice_date(value) -> str:
     return d.strftime("%a %d %b %Y") if d else "-"
 
 
+def short_date(value) -> str:
+    d = logic.to_date(value)
+    return d.strftime("%a %d %b") if d else "-"
+
+
 def label(value) -> str:
     return str(value or "").replace("_", " ").capitalize()
 
 
-templates.env.filters.update(money=money, num=num, nice_date=nice_date, label=label)
+templates.env.filters.update(money=money, num=num, nice_date=nice_date, short_date=short_date, label=label)
 
 
 def render(request: Request, name: str, context: dict | None = None, status_code: int = 200):
@@ -445,11 +451,15 @@ def apply_action(conn, action: dict) -> str:
         return f"Purchase order placed: new shipment {new_id} ({qty:,} units from {supplier['name']}, ETA {nice_date(arrival)})."
     if kind == "reserve_inventory":
         for order_id in payload.get("order_ids", []):
-            conn.execute("UPDATE customer_orders SET status = 'inventory reserved' WHERE id = ?", (order_id,))
+            conn.execute("UPDATE customer_orders SET status = CASE WHEN status IN ('customer notified', "
+                         "'reserved + notified') THEN 'reserved + notified' ELSE 'inventory reserved' END "
+                         "WHERE id = ?", (order_id,))
         return f"Inventory reserved for {', '.join(payload.get('order_ids', []))}."
     if kind == "notify_customers":
         for order_id in payload.get("order_ids", []):
-            conn.execute("UPDATE customer_orders SET status = 'customer notified' WHERE id = ?", (order_id,))
+            conn.execute("UPDATE customer_orders SET status = CASE WHEN status IN ('inventory reserved', "
+                         "'reserved + notified') THEN 'reserved + notified' ELSE 'customer notified' END "
+                         "WHERE id = ?", (order_id,))
         return f"Delay notification sent (simulated) for {', '.join(payload.get('order_ids', []))}."
     if kind == "request_commitment":
         conn.execute("UPDATE shipments SET notes = TRIM(notes || ' · Commitment requested ' || ?, ' ·') WHERE id = ?",
@@ -461,7 +471,9 @@ def apply_action(conn, action: dict) -> str:
 @app.get("/actions")
 def actions_page(request: Request):
     with db.get_conn() as conn:
-        actions = db.rows(conn, "SELECT * FROM actions ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC")
+        # pending: oldest first (plan order); decided: newest first
+        actions = db.rows(conn, "SELECT * FROM actions ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, "
+                                "CASE status WHEN 'pending' THEN id ELSE -id END")
         orders = db.rows(conn, "SELECT o.*, p.name AS product_name FROM customer_orders o "
                                "JOIN products p ON p.id = o.product_id ORDER BY o.due_date")
     for a in actions:

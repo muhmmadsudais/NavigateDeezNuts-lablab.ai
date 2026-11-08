@@ -3,7 +3,7 @@
 {% macro status_badge(status) -%}
   {%- set colors = {"on_time": "green", "delivered": "grey", "delayed": "amber", "cancelled": "red",
                     "pending": "amber", "approved": "green", "rejected": "grey",
-                    "open": "blue", "inventory reserved": "green", "customer notified": "amber",
+                    "open": "blue", "inventory reserved": "green", "customer notified": "amber", "reserved + notified": "green",
                     "high": "red", "medium": "amber", "low": "grey"} -%}
   <span class="badge badge-{{ colors.get(status, 'grey') }}">{{ status | label }}</span>
 {%- endmacro %}

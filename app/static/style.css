@@ -15,6 +15,8 @@
 }
 
 body { font-size: 1.02rem; }
+@media (min-width: 1280px) { .container { max-width: 1320px; } }
+.wide-left, .two-col { align-items: start; }
 .brand { font-size: 1.25rem; }
 .tagline { color: var(--pico-muted-color); font-size: 0.9rem; }
 @media (max-width: 900px) { .tagline { display: none; } }
@@ -86,6 +88,10 @@ tr.row-delayed td { background-color: var(--warn-bg) !important; }
 .ai-box p { font-size: 1.05rem; line-height: 1.6; }
 .facts td:first-child { color: var(--pico-muted-color); }
 .facts td { padding: 0.3rem 0.5rem; font-size: 0.92rem; }
+.facts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem 1rem; margin-top: 0.8rem; }
+.facts-grid div { border-bottom: 1px solid var(--pico-muted-border-color); padding: 0.25rem 0; }
+.facts-grid small { display: block; color: var(--pico-muted-color); font-size: 0.78rem; }
+.facts-grid span { font-weight: 600; font-size: 0.95rem; }
 
 /* simulation banner */
 .sim-banner { background: repeating-linear-gradient(45deg, var(--warn-bg), var(--warn-bg) 14px, transparent 14px, transparent 28px);
