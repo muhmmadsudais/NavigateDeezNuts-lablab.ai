@@ -1,0 +1,10 @@
+# Pinned versions that are known to work together (tested on Python 3.12).
+fastapi==0.115.6
+starlette==0.41.3
+pydantic==2.10.4
+uvicorn==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.20
+openai==1.58.1
+httpx==0.28.1
+pytest==8.3.4
