@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set a = view.a %}
+{% block title %}{{ a.shipment.id }} impact{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Dashboard</a></p>
+<div class="page-head">
+  <div>
+    <h1>{{ a.shipment.id }} · {{ a.product.name }} {{ m.status_badge(a.shipment.status) }}
+      {% if a.at_risk %}<span class="badge badge-red">Stockout risk</span>{% endif %}</h1>
+    <p class="subtitle">
+      {{ a.shipment.quantity | num }} units from {{ a.supplier.name if a.supplier else "unknown supplier" }} ·
+      promised {{ a.shipment.expected_date | nice_date }} · current ETA {{ a.shipment.current_eta | nice_date }}
+      {% if a.shipment.notes %}· <em>{{ a.shipment.notes }}</em>{% endif %}
+    </p>
+  </div>
+  <div class="row-actions">
+    {% if a.is_disrupted %}
+    <form method="post" action="/shipments/{{ a.shipment.id }}/plan">
+      <button type="submit">{% if actions %}Regenerate action plan{% else %}Generate action plan{% endif %}</button>
+    </form>
+    {% endif %}
+    <a href="/simulator" role="button" class="secondary outline">What-if simulator</a>
+  </div>
+</div>
+
+<h3>Agent workflow</h3>
+<ol class="trace">
+  {% for step in trace %}
+  <li class="{{ step.state }}">
+    <strong>{% if step.state == "done" %}&#10003; {% elif step.state == "current" %}&#9203; {% endif %}{{ step.name }}</strong>
+    <small>{{ step.detail }}</small>
+  </li>
+  {% endfor %}
+</ol>
+{% if not a.is_disrupted %}
+<article class="flash flash-ok">This shipment is on track. The agent keeps monitoring it; no action is needed.</article>
+{% endif %}
+
+{% with v = view, simulation = False %}{% include "_impact.html" %}{% endwith %}
+
+<section>
+  <h3>Actions for this shipment</h3>
+  {% if actions %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>Action</th><th>Description</th><th class="right">Est. cost</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for act in actions %}
+      <tr><td>{{ act.id }}</td><td>{{ act.type | label }}</td><td>{{ act.description }}</td>
+          <td class="right">{{ act.estimated_cost | money }}</td><td>{{ m.status_badge(act.status) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if has_pending %}<p><a href="/actions" role="button">Review in Action Center &rarr;</a></p>{% endif %}
+  {% elif a.is_disrupted %}
+  <p class="muted">No action plan yet. Click "Generate action plan" to let the agent propose actions for approval.</p>
+  {% else %}
+  <p class="muted">No actions needed.</p>
+  {% endif %}
+</section>
+{% endblock %}

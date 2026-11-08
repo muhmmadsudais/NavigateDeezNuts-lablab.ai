@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Supply chain dashboard</h1>
+    <p class="subtitle">Live view of inbound shipments, stock cover and the agent's work · {{ today.strftime("%A %d %B %Y") }}</p>
+  </div>
+  <div class="row-actions">
+    <form method="post" action="/scan"><button type="submit" class="small">Run agent scan</button></form>
+    <form method="post" action="/reset" onsubmit="return confirm('Reset all demo data?');">
+      <button type="submit" class="small secondary outline">Reset demo data</button>
+    </form>
+  </div>
+</div>
+
+<section class="kpis">
+  <article class="kpi"><div class="value">{{ kpis.active }}</div><div class="name">Active shipments</div></article>
+  <article class="kpi {{ 'alert' if kpis.at_risk else 'good' }}">
+    <div class="value">{{ kpis.at_risk }}</div>
+    <div class="name">At-risk shipments <small>({{ kpis.delayed }} delayed)</small></div>
+  </article>
+  <article class="kpi"><div class="value">{{ kpis.suppliers }}</div><div class="name">Suppliers monitored</div></article>
+  <article class="kpi {{ 'alert' if kpis.pending else '' }}">
+    <div class="value">{{ kpis.pending }}</div><div class="name"><a href="/actions">Pending actions</a></div>
+  </article>
+</section>
+
+<section>
+  <h2>Inbound shipments</h2>
+  {% if shipments %}
+  <div class="table-wrap">
+  <table class="striped">
+    <thead>
+      <tr><th>Shipment</th><th>Supplier</th><th>Component</th><th class="right">Qty</th>
+          <th>Promised</th><th>Current ETA</th><th>Status</th><th>Risk</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in shipments %}
+      <tr class="{{ 'row-risk' if s.at_risk else 'row-delayed' if s.disrupted else '' }}">
+        <td><a href="/shipments/{{ s.id }}"><strong>{{ s.id }}</strong></a></td>
+        <td>{{ s.supplier_name }}</td>
+        <td>{{ s.product_name }}</td>
+        <td class="right">{{ s.quantity | num }}</td>
+        <td class="nowrap">{{ s.expected_date | nice_date }}</td>
+        <td class="nowrap">{{ s.current_eta | nice_date }}{% if s.delay_days %} <small>(+{{ s.delay_days }}d)</small>{% endif %}</td>
+        <td>{{ m.status_badge(s.status) }}</td>
+        <td>
+          {% if s.at_risk %}<span class="badge badge-red">Stockout risk</span>
+          {% elif s.disrupted %}<span class="badge badge-amber">Watch</span>
+          {% else %}<span class="badge badge-green">OK</span>{% endif %}
+        </td>
+        <td><a href="/shipments/{{ s.id }}" class="nowrap">Impact &rarr;</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No shipments yet. Use "Reset demo data" to load the sample data set.</p>
+  {% endif %}
+</section>
+
+<div class="wide-left">
+  <section>
+    <h2>Component stock</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Component</th><th class="right">On hand</th><th class="right">Weekly usage</th>
+                 <th class="right">Weeks of cover</th><th>Projected stockout (60 days)</th></tr></thead>
+      <tbody>
+        {% for p in stock %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td class="right">{{ p.on_hand | num }}</td>
+          <td class="right">{{ p.weekly_usage | num }}</td>
+          <td class="right">{{ "%.1f" | format(p.weeks) }}</td>
+          <td>{% if p.stockout %}<span class="badge badge-red">{{ p.stockout | nice_date }}</span>
+              {% else %}<span class="badge badge-green">None</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">No components yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Latest agent activity</h2>
+    <div hx-get="/partials/activity?limit=8" hx-trigger="every 5s" hx-swap="innerHTML">
+      {% include "_activity_feed.html" %}
+    </div>
+    <p><a href="/activity">Full activity log &rarr;</a></p>
+  </section>
+</div>
+
+<details>
+  <summary>Optional: upload shipments or inventory from CSV</summary>
+  {% if upload_errors %}
+  <article class="flash flash-err" role="alert">
+    <strong>The file was not imported:</strong>
+    <ul>{% for e in upload_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  </article>
+  {% endif %}
+  <form method="post" action="/upload" enctype="multipart/form-data">
+    <div class="grid">
+      <label>File contains
+        <select name="kind" required>
+          <option value="shipments">Shipments</option>
+          <option value="inventory">Inventory</option>
+        </select>
+      </label>
+      <label>CSV file
+        <input type="file" name="file" accept=".csv,text/csv" required>
+      </label>
+    </div>
+    <small class="muted">
+      Shipments header: <code>id,supplier_id,product_id,quantity,expected_date,current_eta,status,notes</code>
+      (dates as YYYY-MM-DD, status one of on_time/delayed/cancelled/delivered).<br>
+      Inventory header: <code>product_id,on_hand</code>. Rows with an existing id are updated. If any row is invalid, nothing is imported.
+    </small>
+    <p><button type="submit" class="small">Upload CSV</button></p>
+  </form>
+</details>
+{% endblock %}

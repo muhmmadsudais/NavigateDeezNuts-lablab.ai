@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Ingest supplier email{% endblock %}
+{% block content %}
+<h1>Ingest a supplier email</h1>
+<p class="subtitle">Paste an email from a supplier. The agent extracts the key facts, you confirm, and the shipment is updated.</p>
+
+<article>
+  <form method="post" action="/ingest">
+    <label>Supplier email
+      <textarea name="email_text" rows="12" placeholder="Paste the supplier's email here...">{{ email_text }}</textarea>
+    </label>
+    {% if form_error %}<p class="flash flash-err">{{ form_error }}</p>{% endif %}
+    <div class="row-actions">
+      <button type="submit">Extract details</button>
+      <a href="/ingest?sample=1" role="button" class="secondary outline">Load sample delay email</a>
+    </div>
+  </form>
+</article>
+
+{% if parsed %}
+<article>
+  <header class="page-head"><strong>Step 2 · Confirm what the agent understood</strong> {{ m.ai_badge(ai_source) }}</header>
+  <table class="facts">
+    <tbody>
+      <tr><td>Supplier</td><td>{{ parsed.supplier or "not found" }}</td></tr>
+      <tr><td>Product</td><td>{{ parsed.product or "not found" }}</td></tr>
+      <tr><td>Quantity</td><td>{{ parsed.quantity | num if parsed.quantity else "not found" }}</td></tr>
+      <tr><td>New delivery date</td><td>{{ parsed.new_delivery_date | nice_date if parsed.new_delivery_date else "not found" }}</td></tr>
+      <tr><td>Reason</td><td>{{ parsed.reason or "not stated" }}</td></tr>
+      <tr><td>Matched shipment</td><td>{% if shipment %}<strong>{{ shipment.id }}</strong> (promised {{ shipment.expected_date | nice_date }}){% else %}<span class="badge badge-amber">No match, please choose below</span>{% endif %}</td></tr>
+    </tbody>
+  </table>
+
+  <form method="post" action="/ingest/confirm">
+    <div class="grid">
+      <label>Shipment
+        <select name="shipment_id" required>
+          <option value="">Choose a shipment...</option>
+          {% for s in open_shipments %}
+          <option value="{{ s.id }}" {% if shipment and shipment.id == s.id %}selected{% endif %}>{{ s.id }} · {{ s.quantity | num }} units · promised {{ s.expected_date | nice_date }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>New delivery date
+        <input type="date" name="new_delivery_date" value="{{ new_date }}">
+      </label>
+      <label>Status
+        <select name="status">
+          {% for st in ["delayed", "cancelled", "on_time"] %}
+          <option value="{{ st }}" {% if suggested_status == st %}selected{% endif %}>{{ st | label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>Reason
+      <input type="text" name="reason" value="{{ parsed.reason }}" maxlength="200">
+    </label>
+    <button type="submit">Confirm and update shipment</button>
+  </form>
+</article>
+{% endif %}
+{% endblock %}

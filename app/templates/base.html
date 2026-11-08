@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}{{ app_name }}{% endblock %} · {{ app_name }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul>
+        <li><a href="/" class="brand"><strong>{{ app_name }}</strong></a></li>
+        <li class="tagline">{{ tagline }}</li>
+      </ul>
+      <ul>
+        {% set path = request.url.path %}
+        <li><a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
+        <li><a href="/ingest" {% if path.startswith('/ingest') %}aria-current="page"{% endif %}>Ingest email</a></li>
+        <li><a href="/simulator" {% if path.startswith('/simulator') %}aria-current="page"{% endif %}>Simulator</a></li>
+        <li><a href="/actions" {% if path.startswith('/actions') %}aria-current="page"{% endif %}>Action Center</a></li>
+        <li><a href="/activity" {% if path.startswith('/activity') %}aria-current="page"{% endif %}>Activity</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if notice %}<article class="flash flash-ok" role="status">{{ notice }}</article>{% endif %}
+    {% if error %}<article class="flash flash-err" role="alert">{{ error }}</article>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container footer">
+    <small>
+      {{ app_name }} · Backend on Vultr Cloud Compute ·
+      {% if ai_status.configured %}AI by Vultr Serverless Inference{% if ai_status.model %} ({{ ai_status.model }}){% endif %}
+      {% else %}AI offline fallback mode (no API key set){% endif %}
+      · All data is sample data · <a href="/health">health</a> · <a href="/api/shipments">API</a>
+    </small>
+  </footer>
+</body>
+</html>

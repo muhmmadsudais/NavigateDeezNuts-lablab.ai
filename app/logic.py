@@ -491,6 +491,34 @@ def simulate(data: dict, event: dict, today: date | None = None) -> dict:
     return result
 
 
+# ---------------------------------------------------------------- email ingest helper
+
+def match_shipment(data: dict, fields: dict) -> dict | None:
+    """Find the open shipment an email talks about: explicit SH-id first, then supplier/product/quantity."""
+    sid = str(fields.get("shipment_id") or "").strip().upper()
+    if sid:
+        s = get_shipment(data, sid)
+        if s:
+            return s
+    candidates = [s for s in data.get("shipments", []) if s.get("status") not in ("delivered", "cancelled")]
+    supplier = str(fields.get("supplier") or "").lower()
+    product = str(fields.get("product") or "").lower()
+    if not supplier and not product:
+        return None
+    if supplier:
+        ids = {str(s["id"]) for s in data.get("suppliers", [])
+               if s["name"].lower() in supplier or supplier in s["name"].lower()}
+        candidates = [s for s in candidates if str(s["supplier_id"]) in ids]
+    if product:
+        ids = {str(p["id"]) for p in data.get("products", []) if p["name"].lower().rstrip("s") in product}
+        candidates = [s for s in candidates if str(s["product_id"]) in ids]
+    qty = fields.get("quantity")
+    exact = [s for s in candidates if qty and int(s["quantity"]) == int(qty)]
+    candidates = exact or candidates
+    candidates.sort(key=lambda s: str(s["current_eta"]))
+    return candidates[0] if candidates else None
+
+
 # ---------------------------------------------------------------- dashboard helper
 
 def shipment_overview(data: dict, today: date | None = None) -> list[dict]:

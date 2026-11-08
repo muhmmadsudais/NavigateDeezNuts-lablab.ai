@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Action Center{% endblock %}
+{% block content %}
+<h1>Action Center</h1>
+<p class="subtitle">The agent proposes; a human approves. Approved actions update shipments and customer orders immediately.</p>
+
+{% macro action_card(act, show_buttons) %}
+<article>
+  <header class="page-head">
+    <div>
+      <strong>#{{ act.id }} · {{ act.type | label }}</strong> {{ m.status_badge(act.status) }}
+      <br><small class="muted">For <a href="/shipments/{{ act.shipment_id }}">{{ act.shipment_id }}</a> · created {{ act.created_at }}{% if act.decided_at %} · decided {{ act.decided_at }}{% endif %}</small>
+    </div>
+    <div class="right"><strong>{{ act.estimated_cost | money }}</strong><br><small class="muted">estimated cost</small></div>
+  </header>
+  <p>{{ act.description }}</p>
+  {% set p = act.payload_data %}
+  {% if p.email %}
+  <details>
+    <summary>{% if act.type == "notify_customers" %}Drafted customer notification{% else %}Drafted supplier email{% endif %}
+      {{ m.ai_badge(p.ai_source) }}</summary>
+    <pre class="email">{{ p.email }}</pre>
+  </details>
+  {% endif %}
+  {% if act.type == "reorder_alternative" and p.supplier %}
+  <small class="muted">{{ p.quantity | num }} units × {{ p.unit_price | money }} from {{ p.supplier }} · premium vs primary supplier {{ p.cost_premium | money }}</small>
+  {% endif %}
+  {% if show_buttons %}
+  <footer class="row-actions">
+    <form method="post" action="/actions/{{ act.id }}/approve"><button type="submit" class="small">Approve</button></form>
+    <form method="post" action="/actions/{{ act.id }}/reject"><button type="submit" class="small secondary outline">Reject</button></form>
+  </footer>
+  {% endif %}
+</article>
+{% endmacro %}
+
+<section>
+  <h2>Pending approval <span class="badge badge-amber">{{ groups.pending | length }}</span>
+    {% if groups.pending %}<small class="muted">· total {{ total_pending | money }}</small>{% endif %}</h2>
+  {% for act in groups.pending %}
+    {{ action_card(act, True) }}
+  {% else %}
+    <p class="muted">No actions waiting for approval. Open an at-risk shipment from the <a href="/">dashboard</a> and click "Generate action plan".</p>
+  {% endfor %}
+</section>
+
+<div class="two-col">
+  <section>
+    <h2>Approved <span class="badge badge-green">{{ groups.approved | length }}</span></h2>
+    {% for act in groups.approved %}{{ action_card(act, False) }}{% else %}<p class="muted">Nothing approved yet.</p>{% endfor %}
+  </section>
+  <section>
+    <h2>Rejected <span class="badge badge-grey">{{ groups.rejected | length }}</span></h2>
+    {% for act in groups.rejected %}{{ action_card(act, False) }}{% else %}<p class="muted">Nothing rejected.</p>{% endfor %}
+  </section>
+</div>
+
+<section>
+  <h2>Customer orders</h2>
+  <div class="table-wrap">
+  <table class="striped">
+    <thead><tr><th>Order</th><th>Customer</th><th>Component</th><th class="right">Qty</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+      <tr><td>{{ o.id }}</td><td>{{ o.customer }}</td><td>{{ o.product_name }}</td><td class="right">{{ o.quantity_needed | num }}</td>
+          <td class="nowrap">{{ o.due_date | nice_date }}</td><td>{{ m.status_badge(o.priority) }}</td><td>{{ m.status_badge(o.status) }}</td></tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">No customer orders.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

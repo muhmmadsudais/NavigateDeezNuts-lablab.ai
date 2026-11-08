@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Simulator{% endblock %}
+{% block content %}
+<h1>What-if simulator</h1>
+<p class="subtitle">Test a disruption before it happens. Simulations run on a copy of the data; nothing real is changed.</p>
+
+<article>
+  <form method="post" action="/simulator">
+    <label>Scenario
+      <select name="scenario" required>
+        {% for key, name in scenarios.items() %}
+        <option value="{{ key }}" {% if form.scenario == key %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="grid">
+      <label>Shipment <small class="muted">(for "Shipment delayed")</small>
+        <select name="shipment_id">
+          {% for s in open_shipments %}
+          <option value="{{ s.id }}" {% if form.shipment_id == s.id %}selected{% endif %}>{{ s.id }} · {{ s.quantity | num }} units · ETA {{ s.current_eta | nice_date }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Supplier <small class="muted">(for "Supplier unavailable")</small>
+        <select name="supplier_id">
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if form.supplier_id == s.id | string %}selected{% endif %}>{{ s.name }}{% if not s.is_primary %} (alternative){% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Component <small class="muted">(for "Cost +X%")</small>
+        <select name="product_id">
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if form.product_id == p.id | string %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="grid">
+      <label>Days (N)
+        <input type="number" name="days" min="1" max="365" value="{{ form.days }}">
+      </label>
+      <label>Cost change (X %)
+        <input type="number" name="percent" min="-90" max="1000" value="{{ form.percent }}">
+      </label>
+    </div>
+    <button type="submit">Run simulation</button>
+  </form>
+</article>
+
+{% if result %}
+<div class="sim-banner" role="status">
+  <strong>&#9888; {{ result.label | upper }}</strong>
+  <p style="margin:0.3rem 0 0">{{ result.title or "Simulation" }} · Real shipments, inventory and orders are unchanged.</p>
+</div>
+
+{% if result.error %}
+<article class="flash flash-err">{{ result.error }}</article>
+{% endif %}
+
+{% if result.cost_impact %}
+{% set ci = result.cost_impact %}
+<section>
+  <h2>Cost impact <span class="badge badge-amber">{{ simulation_label }}</span></h2>
+  <div class="kpis">
+    <article class="kpi"><div class="value">{{ ci.old_unit_price | money }} &rarr; {{ ci.new_unit_price | money }}</div><div class="name">{{ ci.product }} unit price ({{ ci.percent }}%)</div></article>
+    <article class="kpi alert"><div class="value">{{ ci.extra_cost_open_shipments | money }}</div><div class="name">Extra cost on {{ ci.open_shipment_units | num }} units in open shipments</div></article>
+    <article class="kpi alert"><div class="value">{{ ci.extra_cost_per_week | money }}</div><div class="name">Extra cost per week</div></article>
+    <article class="kpi alert"><div class="value">{{ ci.extra_cost_per_year | money }}</div><div class="name">Extra cost per year</div></article>
+  </div>
+</section>
+{% endif %}
+
+{% for v in views %}
+<section>
+  <h2>{{ v.a.shipment.id }} · {{ v.a.product.name }} <span class="badge badge-amber">{{ simulation_label }}</span></h2>
+  {% with simulation = True %}{% include "_impact.html" %}{% endwith %}
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

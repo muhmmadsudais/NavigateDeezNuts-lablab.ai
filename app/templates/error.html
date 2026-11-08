@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<article>
+  <header><strong>{{ title }}</strong> <span class="badge badge-grey">{{ code }}</span></header>
+  <p>{{ message }}</p>
+  <footer class="row-actions">
+    <a href="/" role="button">Back to dashboard</a>
+    <a href="/actions" role="button" class="secondary outline">Action Center</a>
+  </footer>
+</article>
+{% endblock %}

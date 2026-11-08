@@ -1,0 +1,119 @@
+{# Shared impact layout. Expects `v` = {a, chart, recommendation, ai_source} and `simulation` (bool). #}
+{% import "_macros.html" as m %}
+{% set a = v.a %}
+
+<div class="wide-left">
+  <article class="ai-box">
+    <header class="page-head">
+      <strong>{% if simulation %}Hypothetical recommendation{% else %}Agent recommendation{% endif %}</strong>
+      {{ m.ai_badge(v.ai_source) }}
+    </header>
+    {% if simulation %}<p><span class="badge badge-amber">{{ simulation_label }}</span></p>{% endif %}
+    <p>{{ v.recommendation }}</p>
+    <footer><small class="muted">The AI only rewrites the computed facts on the right; every number is calculated in Python.</small></footer>
+  </article>
+
+  <article>
+    <header><strong>Computed facts</strong></header>
+    <table class="facts">
+      <tbody>
+        {% for key, value in a.facts.items() %}
+        <tr><td>{{ key | label }}</td><td>{{ value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</div>
+
+<section>
+  <h3>Impact</h3>
+  <div class="kpis">
+    <article class="kpi {{ 'alert' if a.stockout_before_arrival else 'good' }}">
+      <div class="value">{{ a.stockout_with_delay.strftime("%d %b") if a.stockout_with_delay else "None" }}</div>
+      <div class="name">Projected stockout{% if a.stockout_without_delay %} (was {{ a.stockout_without_delay.strftime("%d %b") }}){% else %} (none without delay){% endif %}</div>
+    </article>
+    <article class="kpi"><div class="value">{{ a.arrival_date.strftime("%d %b") if a.arrival_date else "-" }}</div>
+      <div class="name">Shipment ETA ({{ a.delay_days }} days late)</div></article>
+    <article class="kpi {{ 'alert' if a.shortage_qty else 'good' }}"><div class="value">{{ a.shortage_qty | num }}</div>
+      <div class="name">Units needed ({{ a.production_shortfall | num }} production + {{ a.orders_at_risk_qty | num }} orders)</div></article>
+    <article class="kpi {{ 'alert' if a.orders_at_risk else 'good' }}"><div class="value">{{ a.orders_at_risk | length }}</div>
+      <div class="name">Customer orders at risk</div></article>
+  </div>
+
+  <h4>{{ a.product.name }} stock projection (next 60 days)</h4>
+  {% set c = v.chart %}
+  {% if c.bars %}
+  <svg class="chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img"
+       aria-label="Projected {{ a.product.name }} stock for the next 60 days">
+    <line class="axis" x1="{{ c.left }}" y1="{{ c.zero_y }}" x2="{{ c.width }}" y2="{{ c.zero_y }}"></line>
+    <text x="{{ c.left - 6 }}" y="{{ c.top + 9 }}" text-anchor="end">{{ c.vmax | num }}</text>
+    <text x="{{ c.left - 6 }}" y="{{ c.zero_y + 4 }}" text-anchor="end">0</text>
+    {% if c.vmin < 0 %}<text x="{{ c.left - 6 }}" y="{{ c.plot_bottom }}" text-anchor="end">{{ c.vmin | num }}</text>{% endif %}
+    {% for b in c.bars %}
+    <rect class="bar-{{ b.color }}" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}"><title>{{ b.title }}</title></rect>
+    {% endfor %}
+    {% for mk in c.markers %}
+    <line class="{{ mk.cls }}" x1="{{ mk.x }}" y1="{{ c.top }}" x2="{{ mk.x }}" y2="{{ c.plot_bottom }}"></line>
+    <text class="{{ mk.cls }}" x="{{ mk.x + 4 }}" y="{{ c.top + 10 + (loop.index0 * 14) }}">{{ mk.text }}</text>
+    {% endfor %}
+    {% for t in c.ticks %}
+    <text x="{{ t.x }}" y="{{ c.height - 8 }}" text-anchor="middle">{{ t.text }}</text>
+    {% endfor %}
+  </svg>
+  <div class="legend"><span class="l-green">Healthy (&ge; 1 week of usage)</span><span class="l-amber">Low (&lt; 1 week)</span><span class="l-red">Stockout (shortage)</span></div>
+  {% else %}
+  <p class="muted">No projection available for this component.</p>
+  {% endif %}
+</section>
+
+<div class="two-col">
+  <section>
+    <h3>Customer orders at risk</h3>
+    {% if a.orders_at_risk %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Order</th><th>Customer</th><th class="right">Qty</th><th>Due</th><th>Priority</th><th class="right">Days late</th></tr></thead>
+      <tbody>
+        {% for o in a.orders_at_risk %}
+        <tr><td>{{ o.id }}</td><td>{{ o.customer }}</td><td class="right">{{ o.quantity_needed | num }}</td>
+            <td class="nowrap">{{ o.due_date | nice_date }}</td><td>{{ m.status_badge(o.priority) }}</td>
+            <td class="right">{{ o.days_late }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p><span class="badge badge-green">No customer orders at risk</span></p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h3>Alternative suppliers (ranked)</h3>
+    {% if a.alternatives %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Supplier</th><th class="right">Qty</th><th>Arrives</th><th>In time?</th>
+                 <th class="right">Total cost</th><th class="right">Premium</th><th class="right">Reliability</th></tr></thead>
+      <tbody>
+        {% for alt in a.alternatives %}
+        <tr>
+          <td>{{ alt.rank }}</td>
+          <td>{{ alt.supplier }}{% if loop.first and alt.coverage_qty %} <span class="badge badge-green">Best</span>{% endif %}<br>
+              <small class="muted">{{ alt.unit_price | money }}/unit · {{ alt.available_qty | num }} available</small></td>
+          <td class="right">{{ alt.coverage_qty | num }}</td>
+          <td class="nowrap">{{ alt.arrival_date | nice_date }}</td>
+          <td>{{ m.yes_no(alt.arrives_in_time) }}</td>
+          <td class="right">{{ alt.total_cost | money }}</td>
+          <td class="right">{{ alt.cost_premium | money }}</td>
+          <td class="right">{{ (alt.reliability * 100) | round | int }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if not a.shortage_qty %}<p class="muted"><small>No shortage, so nothing needs to be ordered.</small></p>{% endif %}
+    {% else %}
+    <p class="muted">No alternative suppliers are on file for {{ a.product.name }}. The plan will focus on the primary supplier and customer communication.</p>
+    {% endif %}
+  </section>
+</div>
